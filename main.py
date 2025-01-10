@@ -231,6 +231,7 @@ def discover_printers():
     while (socketOpen):
         try:
             data = sock.recv(8192)
+            logger.info(data)
             printers = save_discovered_printer(data)
         except TimeoutError:
             sock.close()
@@ -241,17 +242,30 @@ def discover_printers():
 
 def save_discovered_printer(data):
     j = json.loads(data.decode('utf-8'))
-    printer = {}
-    printer['connection'] = j['Id']
-    printer['name'] = j['Data']['Name']
-    printer['model'] = j['Data']['MachineName']
-    printer['brand'] = j['Data']['BrandName']
-    printer['ip'] = j['Data']['MainboardIP']
-    printer['protocol'] = j['Data']['ProtocolVersion']
-    printer['firmware'] = j['Data']['FirmwareVersion']
-    printers[j['Data']['MainboardID']] = printer
-    logger.info("Discovered: {n} ({i})".format(
-        n=printer['name'], i=printer['ip']))
+    if j['Data']['Attributes']['MachineName'] == 'ELEGOO Saturn 3 Ultra':
+        printer = {}
+        printer['connection'] = j['Id']
+        printer['name'] = j['Data']['Attributes']['Name']
+        printer['model'] = j['Data']['Attributes']['MachineName']
+        printer['brand'] = "Elegoo"
+        printer['ip'] = j['Data']['Attributes']['MainboardIP']
+        printer['protocol'] = j['Data']['Attributes']['ProtocolVersion']
+        printer['firmware'] = j['Data']['Attributes']['FirmwareVersion']
+        printers[j['Data']['Attributes']['MainboardID']] = printer
+        logger.info("Discovered: {n} ({i})".format(
+            n=printer['name'], i=printer['ip']))
+    else:
+        printer = {}
+        printer['connection'] = j['Id']
+        printer['name'] = j['Data']['Name']
+        printer['model'] = j['Data']['MachineName']
+        printer['brand'] = j['Data']['BrandName']
+        printer['ip'] = j['Data']['MainboardIP']
+        printer['protocol'] = j['Data']['ProtocolVersion']
+        printer['firmware'] = j['Data']['FirmwareVersion']
+        printers[j['Data']['MainboardID']] = printer
+        logger.info("Discovered: {n} ({i})".format(
+            n=printer['name'], i=printer['ip']))
     return printers
 
 
@@ -259,7 +273,7 @@ def connect_printers(printers):
     for id, printer in printers.items():
         url = "ws://{ip}:3030/websocket".format(ip=printer['ip'])
         logger.info("Connecting to: {n}".format(n=printer['name']))
-        websocket.setdefaulttimeout(1)
+        websocket.setdefaulttimeout(10)
         ws = websocket.WebSocketApp(url,
                                     on_message=ws_msg_handler,
                                     on_open=lambda _: ws_connected_handler(
